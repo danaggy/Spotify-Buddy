@@ -1,0 +1,380 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Example of the Authorization Code flow with Spotify</title>
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+    <style type="text/css">
+      #login, #loggedin {
+        display: none;
+      }
+      .text-overflow {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        width: 500px;
+      }
+      #toc {
+        font-size: 2em;
+        position: fixed;
+        right: 0;
+        top: 0;
+        background-color:#FFF;
+        -webkit-box-shadow: 0 0 1em #777777;
+        -moz-box-shadow: 0 0 1em #777777;
+        -webkit-border-bottom-left-radius: 5px;
+        -moz-border-radius-bottomleft: 5px;
+      }
+
+      #toc #full { display: none; } /* Hide the full TOC by default */
+
+      #toc:hover #full{
+        display: block; /* Show it on hover */
+        padding: 0.5em;
+        font-size: 17pt;
+      }
+    </style>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+
+  <body>
+    <div class="container">
+      <div id="login">
+        Log in and be able to
+        <ul> 
+          <li>View Your Most Listened to Artists</li>
+          <li>View and Save Your Most Listened to Songs </li>
+          <li>Discover New Music!</li>
+        </ul>
+        <a href="/login" class="btn btn-primary">Log in with Spotify</a>
+      </div>
+      <div id="loggedin">
+        <div id="user-profile"></div>
+        <div class="tab">
+          <button class="tablinks" onclick="openTab(event, 'Top Artists')">Top Artists</button>
+          <button class="tablinks" onclick="openTab(event, 'Top Tracks')">Top Tracks</button>
+          <button class="tablinks" onclick="openTab(event, 'Discover')">Discover</button>
+        </div>
+        <div id="Discover" class="tabcontent">
+          <p>Enter a comma seperated list of artists to create a recommended playlist</p>
+          <input name="searchTxt" type="text" maxlength="512" id="searchTxt" class="searchField"/>
+          <input id="recButton" type="button" value="Find Tracks and Make the Playlist!" onclick="parseInput(searchTxt.value);" />
+          <div id="recs"></div>
+        </div>
+        <div id = "Top Artists" class ="tabcontent">
+          <div id="A1"></div>
+          <h1>Most Listened to Artists 4 Weeks </h1>
+          <div id="short_term">
+          </div>
+          <div id="A2"></div>
+          <h1>Most Listened to Artists 6 Months</h1>
+          <div id="medium_term">
+          </div>
+          <div id="A3"></div>
+          <h1>Most Listened to Artists All Time</h1>
+          <div id="long_term">
+          </div>
+        </div>
+        <div id = "Top Tracks" class ="tabcontent">
+          <div id="A4"></div>
+          <h1>Most Listened to Tracks 4 Weeks </h1>
+            <input id="shortButton" type="button" value="Create The Playlist!" onclick="createTopPlayedList('short_term');" />
+          <div id="tracks_short">
+          </div>
+          <div id="A5"></div>
+          <h1>Most Listened to Tracks 6 Months</h1>
+            <input id="shortButton" type="button" value="Create The Playlist!" onclick="createTopPlayedList('med_term');" />
+          <div id="tracks_med">
+          </div>
+          <div id="A6"></div>
+          <h1>Most Listened to Tracks All Time</h1>
+            <input id="shortButton" type="button" value="Create The Playlist!" onclick="createTopPlayedList('long_term');" />
+          <div id="tracks_all">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script id="user-profile-template" type="text/x-handlebars-template">
+      <h1>Logged in as {{display_name}}</h1>
+      <div class="media">
+        <div class="pull-left">
+          <img class="media-object" width="150" src="{{images.0.url}}" />
+        </div>
+        <div class="media-body">
+          <dl class="dl-horizontal">
+            <dt>Display name</dt><dd class="clearfix">{{display_name}}</dd>
+            <dt>Id</dt><dd>{{id}}</dd>
+            <dt>Email</dt><dd>{{email}}</dd>
+            <dt>Spotify URI</dt><dd><a href="{{external_urls.spotify}}">{{external_urls.spotify}}</a></dd>
+            <dt>Link</dt><dd><a href="{{href}}">{{href}}</a></dd>
+            <dt>Profile Image</dt><dd class="clearfix"><a href="{{images.0.url}}">{{images.0.url}}</a></dd>
+            <dt>Country</dt><dd>{{country}}</dd>
+          </dl>
+        </div>
+      </div>
+    </script>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/handlebars.js/2.0.0-alpha.1/handlebars.min.js"></script>
+    <script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+    <script type='text/javascript' src="file:///Users\Daniel Aguiar\Downloads\web-api-auth-examples-master\web-api-auth-examples-master\authorization_code\app.js"></script>
+    <script>
+    function openTab(evt, tabName) {
+      // Declare all variables
+      var i, tabcontent, tablinks;
+
+      // Get all elements with class="tabcontent" and hide them
+      tabcontent = document.getElementsByClassName("tabcontent");
+      for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+      }
+
+      // Get all elements with class="tablinks" and remove the class "active"
+      tablinks = document.getElementsByClassName("tablinks");
+      for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+      }
+
+      // Show the current tab, and add an "active" class to the button that opened the tab
+      document.getElementById(tabName).style.display = "block";
+      evt.currentTarget.className += " active";
+    }
+
+    /**
+     * Obtains parameters from the hash of the URL
+     * @return Object
+     */
+    function getHashParams() {
+      var hashParams = {};
+      var e, r = /([^&;=]+)=?([^&;]*)/g,
+          q = window.location.hash.substring(1);
+      while ( e = r.exec(q)) {
+         hashParams[e[1]] = decodeURIComponent(e[2]);
+      }
+      return hashParams;
+    }
+
+    var userProfileSource = document.getElementById('user-profile-template').innerHTML,
+        userProfileTemplate = Handlebars.compile(userProfileSource),
+        userProfilePlaceholder = document.getElementById('user-profile');
+
+    var params = getHashParams();
+
+    var access_token = params.access_token,
+        refresh_token = params.refresh_token,
+        error = params.error;
+        user_id = ""
+    $.ajax({
+        url: 'https://api.spotify.com/v1/me',
+        headers: {
+          'Authorization': 'Bearer ' + access_token
+        },
+        success: function(response) {
+          user_id = response.id;
+        }
+    });
+        
+
+
+    // key: artist/track string, value: its Spotify ID
+    var hashmap = new Map();
+    var shortTracks = [];
+    var medTracks = [];
+    var longTracks = [];
+    var commaIDList = "";
+    function createRecPlaylist(tracks){
+      var urlString = 'https://api.spotify.com/v1/users/'+user_id+ '/playlists';
+      $.ajax({
+        type: 'POST',
+        url: urlString,
+        data: JSON.stringify({name: "recs", public: false}),
+        dataType: 'json',
+        headers: {
+          'Authorization': 'Bearer ' + access_token
+        },
+        contentType: 'application/json',
+        success: function(result) {
+          playlistId = result.id;
+          urlString = 'https://api.spotify.com/v1/playlists/'+ playlistId +'/tracks'
+            $.ajax({
+              type: 'POST',
+              url: urlString,
+              data: JSON.stringify({uris: tracks}),
+              dataType: 'json',
+              headers: {
+                'Authorization': 'Bearer ' + access_token
+              },
+              contentType: 'application/json',
+              success: function(result) {
+                console.log(result);
+              }
+            });
+        } 
+      });
+    }
+
+    //parses user input, gets rec playlist data, and call func to post 
+    function parseInput(raw){
+      commaIDList = "";
+      var artistArray = raw.split(",");
+      for(var i = 0; i < artistArray.length; i++){
+        var key = artistArray[i];
+        var value = hashmap.get(key);
+        commaIDList += value;
+        if(i != artistArray.length - 1){
+          commaIDList += ",";
+        }
+      }
+      var txt = ""
+      var id = hashmap.get(artistArray[0]);
+      $.ajax({
+        url: 'https://api.spotify.com/v1/recommendations?limit=50&seed_artists=' + commaIDList,
+        headers: {
+          'Authorization': 'Bearer ' + access_token
+        },
+        success: function(response) {
+          var trackURIs = [];
+          console.log(response)
+          for (var i = 0; i < response.tracks.length; i++) {
+            var name = response.tracks[i].name
+            var artist = response.tracks[i].artists[0].name
+            console.log(response)
+            trackURIs[i] = response.tracks[i].uri
+            txt += (i+1) +': ' +"<b>" + name + "</b> -- "+ artist + "<br />";
+          }
+          document.getElementById("recs").innerHTML = txt
+          createRecPlaylist(trackURIs);
+        },
+        error: function(response){
+          txt = "Usage:[Artist Name],[Artist Name],[Artist Name],[Artist Name],[Artist Name] <br /> No spaces after comma and maximum five artists"
+          document.getElementById("recs").innerHTML = txt
+        }
+      });
+    }
+
+    async function create_artist_text(time_period){
+      var txt = ""
+      await $.ajax({
+        url: 'https://api.spotify.com/v1/me/top/artists?time_range='+time_period+'&limit=50',
+        headers: {
+          'Authorization': 'Bearer ' + access_token
+      },
+      success: function(response) {
+        var items = response.items;
+        for(var i = 0; i < items.length; i++)
+        {
+          var spotifyID = items[i].id;
+          var name = items[i].name;
+          hashmap.set(name, spotifyID);
+          txt += (i+1) +': ' +"<b>" + name + "</b>"+ "<br />";
+        }
+        document.getElementById(time_period).innerHTML = txt
+      }
+      });
+    }
+
+    async function createTopPlayedList(label){
+      var urlString = 'https://api.spotify.com/v1/users/'+user_id+ '/playlists';
+      var tracks;
+      var playlistName;
+      switch(label){
+        case "short_term":
+          playlistName = "Top Tracks Short Term";
+          tracks = shortTracks;
+          break;
+        case "med_term":
+          playlistName = "Top Tracks Med Term";
+          tracks = medTracks;
+          break;
+        case "long_term":
+          playlistName = "Top Tracks Long Term";
+          tracks = longTracks;
+          break;
+      }
+      await $.ajax({
+        type: 'POST',
+        url: urlString,
+        data: JSON.stringify({name: playlistName, public: false}),
+        headers: {
+          'Authorization': 'Bearer ' + access_token,
+          'Content-Type': 'application/json'
+
+        },
+        success: function(result) {
+          console.log(result);
+          playlistId = result.id;
+
+          urlString = 'https://api.spotify.com/v1/playlists/'+ playlistId +'/tracks'
+            $.ajax({
+              type: 'POST',
+              url: urlString,
+              data: JSON.stringify({uris: tracks}),
+              dataType: 'json',
+              headers: {
+                'Authorization': 'Bearer ' + access_token
+              },
+              contentType: 'application/json',
+              success: function(result) {
+                console.log(result);
+              }
+            });
+        } 
+      });
+    }
+
+    async function create_track_text(time_period, label, trackArray){ 
+      var txt = ""
+      await $.ajax({
+        url: 'https://api.spotify.com/v1/me/top/tracks?time_range='+time_period+'&limit=50',
+        headers: {
+          'Authorization': 'Bearer ' + access_token
+        },
+        success: function(response) {
+          var items = response.items;
+          for(var i = 0; i < items.length; i++)
+          {
+            var spotifyID = items[i].id;
+            var name = items[i].name;
+            var artist = items[i].artists[0].name
+            trackArray[i] = "spotify:track:"+spotifyID;
+            hashmap.set(name, spotifyID);
+            txt += (i+1) +': ' +"<b>" + name + "</b> -- " + artist + "<br />";
+          }
+          document.getElementById(label).innerHTML = txt
+        }
+      });
+    }
+
+    if (error) {
+      alert('There was an error during the authentication');
+    } else {
+      if (access_token) {
+        $.ajax({
+            url: 'https://api.spotify.com/v1/me',
+            headers: {
+              'Authorization': 'Bearer ' + access_token
+            },
+            success: function(response) {
+              userProfilePlaceholder.innerHTML = userProfileTemplate(response);
+
+              $('#login').hide();
+              $('#loggedin').show();
+            }
+        });
+        create_artist_text("long_term")
+        create_artist_text("medium_term");
+        create_artist_text("short_term");
+        create_track_text("long_term", "tracks_all", longTracks);
+        create_track_text("medium_term", "tracks_med", medTracks);
+        create_track_text("short_term", "tracks_short", shortTracks);
+      } 
+      else {
+              // render initial screen
+              $('#login').show();
+              $('#loggedin').hide();
+          }
+    }
+
+    openTab(event, 'Top Artists')
+    </script>
+  </body>
+</html>

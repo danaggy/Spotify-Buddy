@@ -144,6 +144,7 @@
      * @return Object
      */
     function getHashParams() {
+      console.log("hashing");
       var hashParams = {};
       var e, r = /([^&;=]+)=?([^&;]*)/g,
           q = window.location.hash.substring(1);
@@ -322,6 +323,7 @@
     }
 
     async function create_track_text(time_period, label, trackArray){ 
+      console.log(access_token);
       var txt = ""
       await $.ajax({
         url: 'https://api.spotify.com/v1/me/top/tracks?time_range='+time_period+'&limit=50',

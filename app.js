@@ -102,14 +102,7 @@ app.get('/callback', function(req, res) {
           
           // user_href is https://api.spotify.com/v1/users/userId
           var user_href = body.href;
-          
-          //createLongPlaylist(access_token, user_href);
-          //createMedPlaylist(access_token, user_href);
-          //createShortPlaylist(access_token, user_href);
         });
-
-       
-        
         // we can also pass the token to the browser to make requests from there
         res.redirect('/#' +
           querystring.stringify({
@@ -149,132 +142,6 @@ app.get('/refresh_token', function(req, res) {
     }
   });
 });
-
-function createLongPlaylist(access_token, user_href){
-  var playlistOptions = {
-        url: user_href + '/playlists',
-        headers: {
-           'Authorization': 'Bearer ' + access_token,
-           'contentType': 'application/json'
-        },
-        body: JSON.stringify({name: "Top Tracks(All Time)", public: false})
-  }
-  request.post(playlistOptions, function(err, resp, body){
-            var parsedBody = JSON.parse(body); 
-            var playlist_id = parsedBody.id
-            var options = {
-                  url: 'https://api.spotify.com/v1/me/top/tracks?time_range=long_term&limit=50',
-                  headers: { 'Authorization': 'Bearer ' + access_token },
-                  json: true
-            };
-            request.get(options, function(error, response, body) {
-                  var trackUris = [];
-                  trackList = body.items;
-                  for(var i = 0; i < trackList.length; i++){
-                    var trackObj = trackList[i]; 
-                    trackUris[i] = trackObj.uri;
-                  }
-                  var trackOptions = {
-                    url: user_href + '/playlists/' + playlist_id + "/tracks",
-                    headers: {
-                        'Authorization': 'Bearer ' + access_token,
-                        'contentType': 'application/json'
-                    },
-                    body:{
-                      'uris': trackUris
-                    },
-                    json: true 
-                  };
-                  request.post(trackOptions,function(error,response,body){
-                    console.log("created long term");
-                  });
-            });
-    });
-}
-
-function createMedPlaylist(access_token, user_href){
-  var playlistOptions = {
-        url: user_href + '/playlists',
-        headers: {
-           'Authorization': 'Bearer ' + access_token,
-           'contentType': 'application/json'
-        },
-        body: JSON.stringify({name: "Top Tracks(Med Term)", public: false})
-  }
-  request.post(playlistOptions, function(err, resp, body){
-            var parsedBody = JSON.parse(body); 
-            var playlist_id = parsedBody.id
-            var options = {
-                  url: 'https://api.spotify.com/v1/me/top/tracks?time_range=medium_term&limit=50',
-                  headers: { 'Authorization': 'Bearer ' + access_token },
-                  json: true
-            };
-            request.get(options, function(error, response, body) {
-                  var trackUris = [];
-                  trackList = body.items;
-                  for(var i = 0; i < trackList.length; i++){
-                    var trackObj = trackList[i]; 
-                    trackUris[i] = trackObj.uri;
-                  }
-                  var trackOptions = {
-                    url: user_href + '/playlists/' + playlist_id + "/tracks",
-                    headers: {
-                        'Authorization': 'Bearer ' + access_token,
-                        'contentType': 'application/json'
-                    },
-                    body:{
-                      'uris': trackUris
-                    },
-                    json: true 
-                  };
-                  request.post(trackOptions,function(error,response,body){
-                    console.log("created med term");
-                  });
-            });
-    });
-}
-
-function createShortPlaylist(access_token, user_href){
-  var playlistOptions = {
-        url: user_href + '/playlists',
-        headers: {
-           'Authorization': 'Bearer ' + access_token,
-           'contentType': 'application/json'
-        },
-        body: JSON.stringify({name: "Top Tracks(Short Term)", public: false})
-  }
-  request.post(playlistOptions, function(err, resp, body){
-            var parsedBody = JSON.parse(body); 
-            var playlist_id = parsedBody.id
-            var options = {
-                  url: 'https://api.spotify.com/v1/me/top/tracks?time_range=short_term&limit=50',
-                  headers: { 'Authorization': 'Bearer ' + access_token },
-                  json: true
-            };
-            request.get(options, function(error, response, body) {
-                  var trackUris = [];
-                  trackList = body.items;
-                  for(var i = 0; i < trackList.length; i++){
-                    var trackObj = trackList[i]; 
-                    trackUris[i] = trackObj.uri;
-                  }
-                  var trackOptions = {
-                    url: user_href + '/playlists/' + playlist_id + "/tracks",
-                    headers: {
-                        'Authorization': 'Bearer ' + access_token,
-                        'contentType': 'application/json'
-                    },
-                    body:{
-                      'uris': trackUris
-                    },
-                    json: true 
-                  };
-                  request.post(trackOptions,function(error,response,body){
-                    console.log("created short term");
-                  });
-            });
-    });
-}
 console.log('Listening on 8888');
 
 app.listen(8888);
